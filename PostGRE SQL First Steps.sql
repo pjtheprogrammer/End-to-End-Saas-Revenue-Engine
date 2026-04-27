@@ -1,3 +1,4 @@
+---Creating Tables---
 CREATE TABLE Customers (
 CustomerID INT PRIMARY KEY,
 CompanyName VARCHAR(100) NOT NULL,
@@ -12,11 +13,13 @@ MonthlyPrice DECIMAL(10, 2) CHECK(MonthlyPrice > 0),
 StartDate DATE NOT NULL,
 EndDate DATE,
 
+---Defining Constraints---
 CONSTRAINT fk_customer
 	FOREIGN KEY (CustomerID)
 	REFERENCES Customers(CustomerID)
 );
 
+---Populating Tables---
 INSERT INTO Customers (CustomerID, CompanyName, Region, Segment)
 VALUES (008, 'Alpha Tech', 'North America', 'Enterprise');
 INSERT INTO Customers (CustomerID, CompanyName, Region, Segment)
@@ -39,6 +42,7 @@ VALUES (104, 001, 700.00, '2024-02-15', '2025-07-19');
 INSERT INTO Subscriptions (SubID, CustomerID, MonthlyPrice, StartDate)
 VALUES (105, 004, 1800.00, '2026-02-03');
 
+---Queries to display information---
 SELECT * FROM Customers;
 SELECT * FROM Subscriptions;
 
@@ -74,6 +78,7 @@ JOIN Subscriptions s ON c.CustomerID = s.CustomerID
 WHERE s.EndDate < CURRENT_DATE
 GROUP BY c.Segment;
 
+---Working with views---
 CREATE VIEW vw_Executive_Revenue AS
 SELECT
 	c.CompanyName,
@@ -89,3 +94,34 @@ SELECT
 	END AS Subscription_Status
 FROM Customers c
 JOIN Subscriptions s ON c.CustomerID = s.CustomerID;
+
+---Working with Custom Table Expressions (CTEs)---
+WITH SubscriptionState AS (
+SELECT 
+	SubID,
+	CustomerID,
+	CASE 
+		WHEN EndDate IS NOT NULL AND EndDate <= CURRENT_DATE THEN 'Churned'
+		ELSE 'Active'
+	END AS Status
+FROM Subscriptions),
+
+MonthlyGrossRevenue AS (
+SELECT 
+	SUM (s.MonthlyPrice) AS MonthlyGross
+FROM Subscriptions s
+JOIN SubscriptionState ss ON s.CustomerID = ss.CustomerID
+WHERE ss.Status = 'Active'),
+
+MonthlyChurnedRevenue AS (
+SELECT 
+	SUM (s.MonthlyPrice) AS MonthlyChurn
+FROM Subscriptions s
+JOIN SubscriptionState ss ON s.CustomerID = ss.CustomerID
+WHERE ss.Status = 'Churned')
+
+SELECT 
+	g.MonthlyGross - c.MonthlyChurn AS NetRevenue
+FROM MonthlyGrossRevenue g, MonthlyChurnedRevenue c;
+	
+	
