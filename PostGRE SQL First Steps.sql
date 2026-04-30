@@ -16,7 +16,7 @@ EndDate DATE,
 ---Defining Constraints---
 CONSTRAINT fk_customer
 	FOREIGN KEY (CustomerID)
-	REFERENCES Customers(CustomerID)
+	REFERENCES Customers(CustomerID)`l.`
 );
 
 ---Populating Tables---
@@ -123,5 +123,33 @@ WHERE ss.Status = 'Churned')
 SELECT 
 	g.MonthlyGross - c.MonthlyChurn AS NetRevenue
 FROM MonthlyGrossRevenue g, MonthlyChurnedRevenue c;
-	
-	
+
+---Time Series Analsis using CTEs and Window Functions---
+WITH MonthSpine AS (
+SELECT generate_series(
+'2024-01-01'::date, CURRENT_DATE, '1 month') AS ReportMonth
+),
+
+MonthlyRevenue AS (
+SELECT
+	DATE_TRUNC('month', StartDate) AS ReportMonth,
+	MonthlyPrice AS MonthlyGross
+FROM Subscriptions s
+),
+
+CumulativeRevenue AS (
+SELECT 
+	ms.ReportMonth,
+	SUM(SUM(mr.MonthlyGross)) OVER (
+	ORDER BY ms.ReportMonth
+	) AS MonthlyCumulativeRevenue
+FROM MonthSpine ms
+LEFT JOIN MonthlyRevenue mr ON ms.ReportMonth = mr.ReportMonth
+GROUP BY ms.ReportMonth
+)
+
+SELECT
+	cr.ReportMonth,
+	ROUND(((cr.MonthlyCumulativeRevenue - LAG(cr.MonthlyCumulativeRevenue) OVER (ORDER BY cr.ReportMonth))
+	/NULLIF(LAG(cr.MonthlyCumulativeRevenue) OVER (ORDER BY cr.ReportMonth), 0)) * 100, 2) AS MonthlyGrowthPercentage
+FROM CumulativeRevenue cr;
